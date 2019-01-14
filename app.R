@@ -1,6 +1,11 @@
 library(shiny)
 library(ggplot2)
+library(dplyr)
+library(DT)
+
 bf <- read.csv(file="BlackFriday.csv", header=TRUE, sep=",")
+
+nr<-nrow(bf)
 
 # Define UI for application that plots features of movies 
 ui <- fluidPage(
@@ -10,6 +15,15 @@ ui <- fluidPage(
     
     # Inputs
     sidebarPanel(
+      
+      HTML(paste("Enter a value between 1 and", nr)),
+      
+      numericInput(inputId = "n",
+                   label = "Sample size:",
+                   value = 30,
+                   min=1,
+                   max=nr,
+                   step = 1),
       
       # Select variable for y-axis
       selectInput(inputId = "y", 
@@ -57,15 +71,22 @@ ui <- fluidPage(
                               "Product Category 2"="Product_Category_2",
                               "Product Category 3"="Product_Category_3",
                               "Purchase"="Purchase"),  
-                  selected = "Age")
-    ),
+                  selected = "Age"),
+    
+      sliderInput(inputId = "alpha", 
+                  label = "Alpha:", 
+                  min = 0, max = 1, 
+                  value = 0.5)
+  ),
     
     # Outputs
     mainPanel(
-      plotOutput(outputId = "boxplot")
+      plotOutput(outputId = "boxplot"),
+      DT::dataTableOutput(outputId = "bftable")
     )
   )
 )
+
 
 # Define server function required to create the scatterplot
 server <- function(input, output) {
@@ -73,9 +94,22 @@ server <- function(input, output) {
   # Create scatterplot object the plotOutput function is expecting
   output$boxplot <- renderPlot({
     ggplot(data = bf, aes_string(x = input$x, y = input$y,fill=input$z)) +
-      geom_boxplot()
+      geom_boxplot(alpha = input$alpha)
   })
+
+
+  # Create data table
+  output$bftable <- DT::renderDataTable({
+  req(input$n)
+  bf_sample <- bf %>%
+    sample_n(input$n) %>%
+    select(User_ID:Purchase)
+  DT::datatable(data = bf_sample, 
+                options = list(pageLength = 10), 
+                rownames = FALSE)
+})
 }
+
 
 # Create a Shiny app object
 shinyApp(ui = ui, server = server)
